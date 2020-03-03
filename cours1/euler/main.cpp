@@ -17,7 +17,7 @@ int main() {
 
     double d_t = .001;
     double x = 10.;
-    double v,t = 0;
+    double v,t = 0;c
     do{
         x = x + v*d_t;
         v = v + acc(x,v)*d_t;
