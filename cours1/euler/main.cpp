@@ -12,8 +12,8 @@ double acc(double position, double velocity)
 int main() {
     cout << "Freefall with Euler method" << endl;
 
-    ofstream myfile;
-    myfile.open("data.txt");
+    ofstream dataFile;
+    dataFile.open("data.txt");
 
     double d_t = .001;
     double x = 10.;
@@ -22,10 +22,10 @@ int main() {
         x = x + v*d_t;
         v = v + acc(x,v)*d_t;
         t+= d_t;
-        myfile << t << " " << x << " " << v << endl;
+        dataFile << t << " " << x << " " << v << endl;
     }while(x>0);
 
-    myfile.close();
+    dataFile.close();
 
     return 0;
 }
