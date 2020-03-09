@@ -21,6 +21,12 @@ double acc(double position, double velocity)
     return force/(p_ball*volume);
 }
 
+void leapfrog(double *x, double *v, double d_t) {
+    *x += .5 * (*v) * d_t;
+    *v += acc(*x, *v) * d_t;
+    *x += 1. / 2. * (*v) * d_t;
+}
+
 
 int main() {
     cout << "Ball falling into a viscous fluid" << endl;
@@ -35,9 +41,8 @@ int main() {
     double v  = 0;
     double x = 10.;
     do{
-        x += 1./2.*v*d_t;
-        v += acc(x,v)*d_t;
-        x += 1./2.*v*d_t;
+        leapfrog(&x,&v,d_t);
+
         t+= d_t;
         dataFile << t << " " << x << " " << v << endl;
     }while(t<MAX_TIME);

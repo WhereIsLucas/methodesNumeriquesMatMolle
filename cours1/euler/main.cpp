@@ -3,11 +3,14 @@
 
 using namespace std;
 
-double acc(double position, double velocity)
-{
+double acc(double position, double velocity) {
     return -9.81;
 }
 
+void euler(double *x, double *v, double d_t) {
+    *x += *v * d_t;
+    v += acc(*x, *v) * d_t;
+}
 
 int main() {
     cout << "Freefall with Euler method" << endl;
@@ -17,13 +20,12 @@ int main() {
 
     double d_t = .001;
     double x = 10.;
-    double v,t = 0;
-    do{
-        x = x + v*d_t;
-        v = v + acc(x,v)*d_t;
-        t+= d_t;
+    double v, t = 0;
+    do {
+        t += d_t;
+        euler(&x,&v,d_t);
         dataFile << t << " " << x << " " << v << endl;
-    }while(x>0);
+    } while (x > 0);
 
     dataFile.close();
 
