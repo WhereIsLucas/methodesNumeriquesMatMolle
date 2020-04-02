@@ -5,15 +5,16 @@
 #include "Grain.h"
 #include "Plan.h"
 #include "Cell.h"
+#include "GrainPrinter.h"
 #include <chrono>
 
 int main(int argc, char **argv) {
-    auto t1 = std::chrono::high_resolution_clock::now();
+    auto t1 = omp_get_wtime();
 
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    std::uniform_real_distribution<double> uniformRealDistribution(0,1);
+    std::uniform_real_distribution<double> uniformRealDistribution(0, 1);
 
     int i, j, k;
 
@@ -27,9 +28,10 @@ int main(int argc, char **argv) {
     // VIDEO OPTIONS
     int fps = 50;
     double tStartCapture = 0.;
-    double totalTime = .5;
+    double totalTime = .2;
     int totalFrames = (int) ((totalTime - tStartCapture) * fps);
     double recTime;
+    GrainPrinter grainPrinter;
 
     // GRAINS
     int numberOfGrains = 100;
@@ -38,16 +40,18 @@ int main(int argc, char **argv) {
     double x, y, vx, vy;
     double eta;
     double rho = 2000.;
-    Grain *grains = new Grain[numberOfGrains];
+    auto *grains = new Grain[numberOfGrains];
     int numberOfPlacedGrains = 0;
     int numberOfOverlaps;
 
     //this setups the radius distribution
     double radiusMean = radius;
-//    std::normal_distribution<> radiusNormalDistribution(radiusMean, radiusMean / 3);
+    std::uniform_real_distribution<double> radiusDistribution(radiusMean - (radiusMean / 3),
+                                                              radiusMean + (radiusMean / 3));
+
 
     //container
-    double containerRadius = .3;
+//    double containerRadius = .3;
     double lx = 0.03;
     double ly = 0.06;
     double amplx = 0.;
@@ -61,8 +65,7 @@ int main(int argc, char **argv) {
     wall[3].initPlan(lx / 2., 0., -1., 0., amplx, amply, freqx, freqy);
 
     while (numberOfPlacedGrains < numberOfGrains) {
-//        radius = radiusNormalDistribution(gen);
-        radius = .0005;
+        radius = fabs(radiusDistribution(gen));
         numberOfOverlaps = 0;
         x = -lx / 2. + radius + ((double) (uniformRealDistribution(gen)) * (lx - 2. * radius));
         y = -ly / 2. + radius + ((double) (uniformRealDistribution(gen)) * (ly - 2. * radius));
@@ -82,7 +85,6 @@ int main(int argc, char **argv) {
         }
     }
 
-
     //CLEAR FILES
 //    #pragma omp parallel for default(shared)
     for (int l = 0; l <= totalFrames; l++) {
@@ -96,11 +98,10 @@ int main(int argc, char **argv) {
         grains[i].print(0);
     }
 
-
     //linked cells
     double cellSize = 2.2 * radius;
-    int nCellx = (lx + 2. * amplx) / cellSize;
-    int nCelly = (ly + 2. * amply) / cellSize;
+    int nCellx = (int) ((lx + 2. * amplx) / cellSize);
+    int nCelly = (int) ((ly + 2. * amply) / cellSize);
     int nCell = nCellx * nCelly;
     Cell *cellule = new Cell[nCell];
     double dx = (lx + 2. * amplx) / nCellx;
@@ -129,8 +130,8 @@ int main(int argc, char **argv) {
     double vn, vnx, vny, vt, vtx, vty;
     double rij, delta;
     double effectiveMass;
-    double Fn, Fnx, Fny;
-    double Ft, Ftx, Fty;
+    double fn, fnx, fny;
+    double ft, ftx, fty;
     double M, t;
 
     for (t = 0.; t < totalTime; t += dt) {
@@ -143,7 +144,7 @@ int main(int argc, char **argv) {
         }
 
         //grains
-       // #pragma omp parallel for default(shared)
+        // #pragma omp parallel for default(shared)
         for (i = 0; i < numberOfGrains; i++) {
             //update positions
             grains[i].updatePosition(dt / 2.);
@@ -205,35 +206,35 @@ int main(int argc, char **argv) {
                         //contact forces and torque
                         effectiveMass = (grains[i].mass() * grains[j].mass()) / (grains[i].mass() + grains[j].mass());
                         eta = -2. * log(e) * sqrt(effectiveMass * kn / (log(e) * log(e) + M_PI * M_PI));
-                        Fn = -kn * delta - eta * vn;
-                        Ft = -kt * vt;
+                        fn = -kn * delta - eta * vn;
+                        ft = -kt * vt;
 
                         //forces
-                        if (Fn > 0) {
-                            Fnx = Fn * nx;
-                            Fny = Fn * ny;
-                            grains[i].addForce(Fnx, Fny);
-                            grains[j].addForce(-Fnx, -Fny);
+                        if (fn > 0) {
+                            fnx = fn * nx;
+                            fny = fn * ny;
+                            grains[i].addForce(fnx, fny);
+                            grains[j].addForce(-fnx, -fny);
                         } else {
-                            Fn = 0.;
+                            fn = 0.;
                         }
 
-                        if (fabs(Ft) > mu * Fn) {
-                            Ftx = -mu * Fn * tx;
-                            Fty = -mu * Fn * ty;
-                            grains[i].addForce(Ftx, Fty);
-                            grains[j].addForce(-Ftx, -Fty);
+                        if (fabs(ft) > mu * fn) {
+                            ftx = -mu * fn * tx;
+                            fty = -mu * fn * ty;
+                            grains[i].addForce(ftx, fty);
+                            grains[j].addForce(-ftx, -fty);
                         } else {
-                            Ftx = Ft * tx;
-                            Fty = Ft * ty;
-                            grains[i].addForce(Ftx, Fty);
-                            grains[j].addForce(-Ftx, -Fty);
+                            ftx = ft * tx;
+                            fty = ft * ty;
+                            grains[i].addForce(ftx, fty);
+                            grains[j].addForce(-ftx, -fty);
                         }
 
                         //torque
-                        M = -grains[i].radius() * nx * Fty + grains[i].radius() * ny * Ftx;
+                        M = -grains[i].radius() * nx * fty + grains[i].radius() * ny * ftx;
                         grains[i].addMomentum(M);
-                        M = -grains[j].radius() * nx * Fty + grains[j].radius() * ny * Ftx;
+                        M = -grains[j].radius() * nx * fty + grains[j].radius() * ny * ftx;
                         grains[j].addMomentum(M);
                     }
                 }
@@ -276,35 +277,35 @@ int main(int argc, char **argv) {
                         //contact forces and torque
                         effectiveMass = (grains[i].mass() * grains[j].mass()) / (grains[i].mass() + grains[j].mass());
                         eta = -2. * log(e) * sqrt(effectiveMass * kn / (log(e) * log(e) + M_PI * M_PI));
-                        Fn = -kn * delta - eta * vn;
-                        Ft = -kt * vt;
+                        fn = -kn * delta - eta * vn;
+                        ft = -kt * vt;
 
                         //forces
-                        if (Fn > 0) {
-                            Fnx = Fn * nx;
-                            Fny = Fn * ny;
-                            grains[i].addForce(Fnx, Fny);
-                            grains[j].addForce(-Fnx, -Fny);
+                        if (fn > 0) {
+                            fnx = fn * nx;
+                            fny = fn * ny;
+                            grains[i].addForce(fnx, fny);
+                            grains[j].addForce(-fnx, -fny);
                         } else {
-                            Fn = 0.;
+                            fn = 0.;
                         }
 
-                        if (fabs(Ft) > mu * Fn) {
-                            Ftx = -mu * Fn * tx;
-                            Fty = -mu * Fn * ty;
-                            grains[i].addForce(Ftx, Fty);
-                            grains[j].addForce(-Ftx, -Fty);
+                        if (fabs(ft) > mu * fn) {
+                            ftx = -mu * fn * tx;
+                            fty = -mu * fn * ty;
+                            grains[i].addForce(ftx, fty);
+                            grains[j].addForce(-ftx, -fty);
                         } else {
-                            Ftx = Ft * tx;
-                            Fty = Ft * ty;
-                            grains[i].addForce(Ftx, Fty);
-                            grains[j].addForce(-Ftx, -Fty);
+                            ftx = ft * tx;
+                            fty = ft * ty;
+                            grains[i].addForce(ftx, fty);
+                            grains[j].addForce(-ftx, -fty);
                         }
 
                         //torque
-                        M = -grains[i].radius() * nx * Fty + grains[i].radius() * ny * Ftx;
+                        M = -grains[i].radius() * nx * fty + grains[i].radius() * ny * ftx;
                         grains[i].addMomentum(M);
-                        M = -grains[j].radius() * nx * Fty + grains[j].radius() * ny * Ftx;
+                        M = -grains[j].radius() * nx * fty + grains[j].radius() * ny * ftx;
                         grains[j].addMomentum(M);
                     }
                     j = grains[j].linkedDisk();
@@ -339,38 +340,38 @@ int main(int argc, char **argv) {
                     //contact forces and torque
                     effectiveMass = grains[i].mass();
                     eta = -2. * log(e) * sqrt(effectiveMass * kn / (log(e) * log(e) + M_PI * M_PI));
-                    Fn = -kn * delta - eta * vn;
-                    Ft = -kt * vt;
+                    fn = -kn * delta - eta * vn;
+                    ft = -kt * vt;
 
                     //forces
-                    if (Fn > 0) {
-                        Fnx = Fn * nx;
-                        Fny = Fn * ny;
-                        grains[i].addForce(Fnx, Fny);
+                    if (fn > 0) {
+                        fnx = fn * nx;
+                        fny = fn * ny;
+                        grains[i].addForce(fnx, fny);
                     } else {
-                        Fn = 0.;
+                        fn = 0.;
                     }
 
 
-                    if (fabs(Ft) > mu * Fn) {
-                        Ftx = -mu * Fn * tx;
-                        Fty = -mu * Fn * ty;
-                        grains[i].addForce(Ftx, Fty);
+                    if (fabs(ft) > mu * fn) {
+                        ftx = -mu * fn * tx;
+                        fty = -mu * fn * ty;
+                        grains[i].addForce(ftx, fty);
                     } else {
-                        Ftx = Ft * tx;
-                        Fty = Ft * ty;
-                        grains[i].addForce(Ftx, Fty);
+                        ftx = ft * tx;
+                        fty = ft * ty;
+                        grains[i].addForce(ftx, fty);
                     }
 
                     //torque
-                    M = -grains[i].radius() * nx * Fty + grains[i].radius() * ny * Ftx;
+                    M = -grains[i].radius() * nx * fty + grains[i].radius() * ny * ftx;
                     grains[i].addMomentum(M);
                 }
             }
         }
 
         //update velocity and position
-//        #pragma omp parallel for default (shared)
+//        #pragma omp parallel for default (none) shared(numberOfGrains, grains, dt)
         for (i = 0; i < numberOfGrains; i++) {
             grains[i].updateVelocity(dt);
             grains[i].updatePosition(dt / 2.);
@@ -384,9 +385,9 @@ int main(int argc, char **argv) {
         recTime = t - tStartCapture;
         if (recTime >= 0.) {
             if ((int) ((recTime + dt) * fps) > (int) (recTime * fps)) {
-//                #pragma omp parallel for default (shared)
+//                #pragma omp parallel for default (none) shared(numberOfGrains, grainPrinter,grains, recTime, dt, fps )
                 for (i = 0; i < numberOfGrains; i++) {
-                    grains[i].print((int) ((recTime + dt) * fps));
+                    grainPrinter.print(grains[i], (int) ((recTime + dt) * fps));
                 }
                 std::cout << "PRINTED IMAGE : " << (int) ((recTime + dt) * fps) << std::endl;
             }
@@ -398,14 +399,11 @@ int main(int argc, char **argv) {
     delete[] grains;
 
     // Recording end time.
-    auto t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+    auto t2 = omp_get_wtime();
 
-    std::cout << duration * pow(10,-5) << " s";
+    printf("Work took %f seconds", t2 - t1);
 
 
     return 0;
-
-
 
 }

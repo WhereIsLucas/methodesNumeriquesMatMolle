@@ -155,3 +155,11 @@ double Grain::w()
 {
     return m_w;
 }
+
+int Grain::index() {
+    return m_index;
+}
+
+double Grain::theta() {
+    return m_theta;
+}
